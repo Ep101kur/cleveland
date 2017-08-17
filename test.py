@@ -35,21 +35,21 @@ asyncio.get_event_loop().run_until_complete(say_hello())
 
 ########################################
 
-class GreetingBroadcaster(TimedBroadcaster):
-
-    @asyncio.coroutine
-    def _message(self):
-        return StringMessage('Hello dolly!')
-
-@asyncio.coroutine
-def broadcast_hello():
-    b = PrintActor()
-    b.start()
-    a = GreetingBroadcaster(targets=[b], interval=0.75)
-    a.start()
-    for _ in range(5):
-        yield from asyncio.sleep(1)
-    yield from a.stop()
-    yield from b.stop()
-
-asyncio.get_event_loop().run_until_complete(broadcast_hello())
+# class GreetingBroadcaster(TimedBroadcaster):
+#
+#     @asyncio.coroutine
+#     def _message(self):
+#         return StringMessage('Hello dolly!')
+#
+# @asyncio.coroutine
+# def broadcast_hello():
+#     b = PrintActor()
+#     b.start()
+#     a = GreetingBroadcaster(targets=[b], interval=0.75)
+#     a.start()
+#     for _ in range(5):
+#         yield from asyncio.sleep(1)
+#     yield from a.stop()
+#     yield from b.stop()
+#
+# asyncio.get_event_loop().run_until_complete(broadcast_hello())

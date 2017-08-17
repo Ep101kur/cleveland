@@ -5,7 +5,11 @@ from .message import StopMessage, QueryMessage
 
 
 class HandlerNotFoundError(KeyError): 
-  pass
+    pass
+
+
+class ActorStopError(Exception):
+    """Raise when a Actor receive a message after he received a StopMessage"""
 
 
 class AbstractActor(object):
@@ -14,7 +18,7 @@ class AbstractActor(object):
         self._loop = kwargs['loop'] if 'loop' in kwargs \
             else asyncio.get_event_loop()
         self._is_running = False
-        self._run_complete = asyncio.Future(loop = self._loop)
+        self._run_complete = asyncio.Future(loop=self._loop)
 
     def start(self):
         self._is_running = True
@@ -60,7 +64,7 @@ class AbstractActor(object):
     def ask(self, target, message):
         assert isinstance(message, QueryMessage)
         if not message.result:
-            message.result = asyncio.Future(loop = self._loop)
+            message.result = asyncio.Future(loop=self._loop)
           
         yield from self.tell(target, message)
         return (yield from message.result)
@@ -85,7 +89,7 @@ class BaseActor(AbstractActor):
     def _task(self):
         message = yield from self._inbox.get()
         try:
-            handler  = self._handlers[type(message)]
+            handler = self._handlers[type(message)]
             is_query = isinstance(message, QueryMessage)
             try:
                 response = yield from handler(message)
@@ -107,12 +111,18 @@ class BaseActor(AbstractActor):
 
     @asyncio.coroutine
     def _receive(self, message):
-        yield from self._inbox.put(message)
+        #TODO: Find a more pythonic way to check if Actor is alive
+        if self._is_running or isinstance(message, StopMessage):
+            yield from self._inbox.put(message)
+        else:
+            raise ActorStopError("Actor has already received a StopMessage")
 
-    @asyncio.coroutine
-    def _stop_message_handler(self, message): 
+    async def _stop_message_handler(self, message):
         '''The stop message is only to ensure that the queue has at least one
         item in it so the call to _inbox.get() doesn't block. We don't actually
         have to do anything with it.
         '''
+        if self._is_running:
+            self._is_running = False
+
 
