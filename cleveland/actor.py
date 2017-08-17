@@ -24,50 +24,50 @@ class AbstractActor(object):
         self._is_running = True
         self._loop.create_task(self._run())
 
-    @asyncio.coroutine
-    def stop(self):
+
+    async def stop(self):
         self._is_running = False
-        yield from self._stop()
-        yield from self._run_complete
+        await self._stop()
+        await self._run_complete
         return True
 
     def _start(self): 
         '''Custom startup logic, override in subclasses'''
 
-    @asyncio.coroutine
-    def _stop(self):
+
+    async def _stop(self):
         '''Custom shutdown logic, override in subclasses'''
 
-    @asyncio.coroutine
-    def _run(self):
+
+    async def _run(self):
         '''The actor's main work loop'''
       
         while self._is_running:
-            yield from self._task()
+            await self._task()
 
         # Signal that the loop has finished.
         self._run_complete.set_result(True)
 
-    @asyncio.coroutine
-    def _task(self):
+
+    async def _task(self):
         raise NotImplementedError('Subclasses of AbstractActor must implement '
                                   '_task()')
 
-    @asyncio.coroutine
-    def tell(self, target, message):
+    @staticmethod
+    async def tell(target, message):
         try:
-            yield from target._receive(message)
+            await target._receive(message)
         except AttributeError as ex:
-            raise TypeError('Target does not have a _receive method. Is it an actor?') from ex 
+            raise TypeError('Target does not have a _receive method. Is it an actor?') from ex
 
-    @asyncio.coroutine
-    def ask(self, target, message):
+
+    async def ask(self, target, message):
         assert isinstance(message, QueryMessage)
         if not message.result:
             message.result = asyncio.Future(loop=self._loop)
           
-        yield from self.tell(target, message)
-        return (yield from message.result)
+        await self.tell(target, message)
+        return await message.result
 
 
 class BaseActor(AbstractActor):
@@ -85,35 +85,34 @@ class BaseActor(AbstractActor):
     def register_handler(self, message_cls, func):
         self._handlers[message_cls] = func
 
-    @asyncio.coroutine
-    def _task(self):
-        message = yield from self._inbox.get()
+
+    async def _task(self):
+        message = await self._inbox.get()
         try:
             handler = self._handlers[type(message)]
             is_query = isinstance(message, QueryMessage)
             try:
-                response = yield from handler(message)
+                response = await handler(message)
             except Exception as ex:
                 if is_query:
                     message.result.set_exception(ex)
                 else:
                     warnings.warn('Unhandled exception from handler of '
-                        '{0}'.format(type(message)))
+                                  '{0}'.format(type(message)))
             else:
                 if is_query:
                     message.result.set_result(response)
         except KeyError as ex:
             raise HandlerNotFoundError(type(message)) from ex
 
-    @asyncio.coroutine
-    def _stop(self):
-        yield from self._receive(StopMessage())
 
-    @asyncio.coroutine
-    def _receive(self, message):
-        #TODO: Find a more pythonic way to check if Actor is alive
+    async def _stop(self):
+        await self._receive(StopMessage())
+
+    async def _receive(self, message):
+        # TODO: Find a more pythonic way to check if Actor is alive
         if self._is_running or isinstance(message, StopMessage):
-            yield from self._inbox.put(message)
+            await self._inbox.put(message)
         else:
             raise ActorStopError("Actor has already received a StopMessage")
 

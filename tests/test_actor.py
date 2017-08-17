@@ -147,6 +147,7 @@ class TestActor(unittest.TestCase):
         await admin._receive(StopMessage())
         await admin._run_complete
 
+
 class UpdateMessage(Message):
     def __repr__(self):
         return 'UpdateMessage (Payload: {0})'.format(self.payload)
